@@ -27,7 +27,7 @@ def encourage(e, q):
 	x = randInt(1,6)
 	if q >= .75:
 		if x <= 3:
-			output(You are doing fantastic! Do you even need me?)
+			output("You are doing fantastic! Do you even need me?")
 		else:
 			output(Absolute perfection! Why am I here?)
 	if .75 > q >= .5:

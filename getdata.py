@@ -3,39 +3,43 @@ import time
 import sys
 from process import *
 
-samples = [[] for i in range(8)]
+numsensors = 11
+samples = [[] for i in range(numsensors)]
 training = {"features":[], "output":[]}
 state = ""
-featurespertrain = 8
+featurespertrain = 16
 currenttrain = 0
+numsamples = 32
 gesture = ""
+currentacc = [];
 
-def train(emg):
+def train(data):
+    print(data)
     global currenttrain, state, samples
-    for i in range(len(emg)):
-        samples[i].append(emg[i])
-    if len(samples[0]) >= 256:
-        rms = extractFeatures(samples)
+    for i in range(len(data)):
+        samples[i].append(data[i])
+    if len(samples[0]) >= numsamples:
+        rms = list(extractFeatures(samples[:8]))+list(map(np.mean,samples[8:]))
         training["features"].append(rms)
         training["output"].append(gesture)
         currenttrain += 1
-        for i in range(8):
-            samples[i] = samples[i][64:]
+        for i in range(numsensors):
+            samples[i] = samples[i][numsamples//4:]
         print("Collected feature", currenttrain, "/", featurespertrain, "for", gesture, [int(i) for i in rms])
         if currenttrain >= featurespertrain:
             state = ""
             currenttrain = 0
-            samples = [[] for i in range(8)]
+            samples = [[] for i in range(numsensors)]
             print("Done collecting data for", gesture)
 
-def stream(emg):
-    global samples
-    for i in range(len(emg)):
-        samples[i].append(emg[i])
-    if len(samples[0]) >= 256:
-        rms = extractFeatures(samples)
-        for i in range(8):
-            samples[i] = samples[i][64:]
+def stream(data):
+    global samplest
+    for i in range(len(data)):
+        samples[i].append(data[i])
+    if len(samples[0]) >= numsamples:
+        rms = list(extractFeatures(samples[:8]))+list(map(np.mean,samples[8:]))
+        for i in range(numsensors):
+            samples[i] = samples[i][numsamples//4:]
         print("It's", classify(training["features"], training["output"], rms))
 
 class Listener(libmyo.DeviceListener):
@@ -71,17 +75,19 @@ class Listener(libmyo.DeviceListener):
         self.orientation = orientation
 
     def on_accelerometor_data(self, myo, timestamp, acceleration):
-        pass #a[0] is for pushups
+        global currentacc
+        currentacc = list(acceleration)
 
     def on_gyroscope_data(self, myo, timestamp, gyroscope):
         pass
 
     def on_emg_data(self, myo, timestamp, emg):
         self.emg = emg
+        data = list(emg)+currentacc
         if state == "train":
-            train(emg)
+            train(data)
         if state == "stream":
-            stream(emg)
+            stream(data)
 
     def on_unlock(self, myo, timestamp):
         self.locked = False
@@ -161,6 +167,7 @@ try:
                     time.sleep(1)
             except KeyboardInterrupt:
                 print("Quit streaming")
+                state = ""
 except KeyboardInterrupt:
     print("\nQuitting ...")
 finally:
