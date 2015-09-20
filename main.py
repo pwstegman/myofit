@@ -21,7 +21,11 @@ def startTraining():
 		training(e,i,q,t)
 	
 def training(e, i, q, t): #e=exercise, i=increment(rep), q=quality, t=time since last increment
-	#if mi.
+	while mi.isConnected:
+		exercise = e
+		reps = i
+		quality = q
+		time = t 
 
 def encourage(e, q):
 	x = randInt(1,6)
