@@ -1,0 +1,14 @@
+-current gesture
+	-pushup
+		-completed rep (event fire)
+		-how far (0-1) *possibly 1.5
+		-time since rep (-1 means first)
+	-pullups
+		-^^^
+	-hang
+		-angle of hang
+		-time since start
+-event if disconnected/connected mi.isConnected 
+-event if untrained mi.isTrained = false
+-event if idle mi.isIdle = true
+-event if gesture changes mi.gestureChange
