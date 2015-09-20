@@ -38,7 +38,7 @@ def classify(knownsSamples, knownsOutputs, unknown):
 		unknown: what you search for with kkn
 		return: search knownsSamples for unknown, get that index, and use that index to find the mapping in the knownsOutputs
 	"""
-	neigh = NearestNeighbors(weights='distance', n_neighbors=1)
+	neigh = NearestNeighbors(n_neighbors=1)
 
 	neigh.fit(knownsSamples)
 
