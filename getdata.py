@@ -2,7 +2,10 @@ import myo as libmyo; libmyo.init()
 import time
 import sys
 from process import *
-import tts
+from tkinter import *
+
+root = Tk()
+root.title("Hack the North Myo Fit")
 
 numsensors = 8
 samples = [[] for i in range(numsensors)]
@@ -30,12 +33,15 @@ def train(emg):
         currenttrain += 1
         for i in range(numsensors):
             samples[i] = samples[i][numsamples//4:]
-        print("Collected feature", currenttrain, "/", featurespertrain, "for", gesture, [int(i) for i in rms])
+        w1.set(str(currenttrain) + "/" + str(featurespertrain))
+        w2.set(str([int(i) for i in rms]))
         if currenttrain >= featurespertrain:
             state = ""
             currenttrain = 0
             samples = [[] for i in range(numsensors)]
             print("Done collecting data for", gesture)
+            w1.set("Done")
+            w2.set("")
 
 def subPos(gesture, acc):
     return classify(subtrain[gesture]["features"], subtrain[gesture]["output"], acc)
@@ -51,8 +57,9 @@ def stream(emg):
         gesture = classify(training["features"], training["output"], rms)
         if not lastgesture == gesture:
             print("It's", gesture)
-            tts.gesture(gesture)
-            lastgesture == gesture
+            w1.set(gesture)
+            #tts.gesture(gesture)
+            lastgesture = gesture
         if gesture in subtrain:
             sp = subPos(gesture, currentacc)
             if not lastsubg == sp:
@@ -67,7 +74,8 @@ def stream(emg):
                 else:
                     reps[gesture] += 1
                 print("Rep number", reps[gesture])
-                tts.rep(gesture, reps[gesture])
+                w2.set(str(reps[gesture]))
+                #tts.rep(gesture, reps[gesture])
 
 
 class Listener(libmyo.DeviceListener):
@@ -92,10 +100,11 @@ class Listener(libmyo.DeviceListener):
         myo.request_rssi()
         myo.request_battery_level()
         myo.set_stream_emg(libmyo.StreamEmg.enabled)
-        tts.myoconnected()
+        #tts.myoconnected()
 
     def on_rssi(self, myo, timestamp, rssi):
         self.rssi = rssi
+        print("RSSI", rssi)
 
     def on_pose(self, myo, timestamp, pose):
         self.pose = pose
@@ -149,7 +158,7 @@ class Listener(libmyo.DeviceListener):
         """
         Called when a Myo is disconnected.
         """
-        tts.myodisconnected()
+        #tts.myodisconnected()
 
     def on_arm_sync(self, myo, timestamp, arm, x_direction, rotation,
                     warmup_state):
@@ -166,6 +175,7 @@ class Listener(libmyo.DeviceListener):
         """
         Called when the requested battery level received.
         """
+        w2.set("Battery " + str(level) + "%")
 
     def on_warmup_completed(self, myo, timestamp, warmup_result):
         """
@@ -179,35 +189,48 @@ hub = libmyo.Hub()
 hub.set_locking_policy(libmyo.LockingPolicy.none)
 hub.run(200, Listener())
 
-# Listen to keyboard interrupts and stop the hub in that case.
-try:
-    while hub.running:
-        time.sleep(0.25)
-        if state != "":
-            continue
-        action = input("Do you want to train [t], subtrain [st], or stream [s]? ")
-        if action == "train" or action == "t":
-            gesture = input("What gesture? ")
-            state = "train"
-        elif action == "stream" or action == "s":
-            state = "stream"
-            try:
-                while True:
-                    time.sleep(1)
-            except KeyboardInterrupt:
-                print("Quit streaming")
-                state = ""
-        elif action == "subtrain" or action == "st":
-            subpos = input("Sub position? ")
-            maing = input("For what gesture? ")
-            if maing not in subtrain:
-                subtrain[maing] = {"features":[], "output":[]}
-            subtrain[maing]["features"].append(currentacc)
-            subtrain[maing]["output"].append(subpos)
-            print("Stored", currentacc, "for", maing,"as", subpos)
+def tktrain():
+    global state, gesture
+    gesture = e1.get()
+    state = "train"
 
-except KeyboardInterrupt:
-    print("\nQuitting ...")
-finally:
-    print("Shutting down hub...")
-    hub.shutdown()
+def tkstream():
+    global state
+    state = "stream"
+
+def tksubtrain():
+    global subtrain
+    subpos = e2.get()
+    maing = e1.get()
+    if maing not in subtrain:
+        subtrain[maing] = {"features":[], "output":[]}
+    subtrain[maing]["features"].append(currentacc)
+    subtrain[maing]["output"].append(subpos)
+    print("Stored", currentacc, "for", maing,"as", subpos)
+
+def tkstopstream():
+    state = ""
+
+fc = ("Helvetica", 32, "bold")
+
+button1 = Button(root, text='Train', command=tktrain, font=fc)
+button1.pack(fill=X)
+e1 = Entry(font=fc)
+e1.pack(fill=X)
+button2 = Button(root, text='Stream', command=tkstream, font=fc)
+button2.pack(fill=X)
+button3 = Button(root, text='Subtrain', command=tksubtrain, font=fc)
+button3.pack(fill=X)
+e2 = Entry(font=fc)
+e2.pack(fill=X)
+button4 = Button(root, text='Stop stream', command=tkstopstream, font=fc)
+button4.pack(fill=X)
+w1 = StringVar()
+w1l = Label(root, textvariable=w1, font=fc)
+w1l.pack(fill=X)
+w2 = StringVar()
+w2l = Label(root, textvariable=w2, font=fc)
+w2l.pack(fill=X)
+
+root.mainloop()
+hub.shutdown()
