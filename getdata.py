@@ -2,24 +2,29 @@ import myo as libmyo; libmyo.init()
 import time
 import sys
 from process import *
+import tts
 
-numsensors = 11
+numsensors = 8
 samples = [[] for i in range(numsensors)]
 training = {"features":[], "output":[]}
+subtrain = {}
 state = ""
 featurespertrain = 16
 currenttrain = 0
-numsamples = 32
+numsamples = 128
 gesture = ""
 currentacc = [];
+reps = {}
+phase = 0
+lastgesture = ""
+lastsubg = ""
 
-def train(data):
-    print(data)
+def train(emg):
     global currenttrain, state, samples
-    for i in range(len(data)):
-        samples[i].append(data[i])
+    for i in range(len(emg)):
+        samples[i].append(emg[i])
     if len(samples[0]) >= numsamples:
-        rms = list(extractFeatures(samples[:8]))+list(map(np.mean,samples[8:]))
+        rms = extractFeatures(samples)
         training["features"].append(rms)
         training["output"].append(gesture)
         currenttrain += 1
@@ -32,15 +37,38 @@ def train(data):
             samples = [[] for i in range(numsensors)]
             print("Done collecting data for", gesture)
 
-def stream(data):
-    global samplest
-    for i in range(len(data)):
-        samples[i].append(data[i])
+def subPos(gesture, acc):
+    return classify(subtrain[gesture]["features"], subtrain[gesture]["output"], acc)
+
+def stream(emg):
+    global samples, phase, reps, lastgesture, lastsubg
+    for i in range(len(emg)):
+        samples[i].append(emg[i])
     if len(samples[0]) >= numsamples:
-        rms = list(extractFeatures(samples[:8]))+list(map(np.mean,samples[8:]))
+        rms = extractFeatures(samples)
         for i in range(numsensors):
             samples[i] = samples[i][numsamples//4:]
-        print("It's", classify(training["features"], training["output"], rms))
+        gesture = classify(training["features"], training["output"], rms)
+        if not lastgesture == gesture:
+            print("It's", gesture)
+            tts.gesture(gesture)
+            lastgesture == gesture
+        if gesture in subtrain:
+            sp = subPos(gesture, currentacc)
+            if not lastsubg == sp:
+                print("Subtrain is", sp)
+                lastsubg = sp
+            if sp == "down":
+                phase += 1
+            if sp == "up" and phase >= 2:
+                phase = 0
+                if gesture not in reps:
+                    reps[gesture] = 1
+                else:
+                    reps[gesture] += 1
+                print("Rep number", reps[gesture])
+                tts.rep(gesture, reps[gesture])
+
 
 class Listener(libmyo.DeviceListener):
     """
@@ -64,6 +92,7 @@ class Listener(libmyo.DeviceListener):
         myo.request_rssi()
         myo.request_battery_level()
         myo.set_stream_emg(libmyo.StreamEmg.enabled)
+        tts.myoconnected()
 
     def on_rssi(self, myo, timestamp, rssi):
         self.rssi = rssi
@@ -83,11 +112,10 @@ class Listener(libmyo.DeviceListener):
 
     def on_emg_data(self, myo, timestamp, emg):
         self.emg = emg
-        data = list(emg)+currentacc
         if state == "train":
-            train(data)
+            train(emg)
         if state == "stream":
-            stream(data)
+            stream(emg)
 
     def on_unlock(self, myo, timestamp):
         self.locked = False
@@ -121,6 +149,7 @@ class Listener(libmyo.DeviceListener):
         """
         Called when a Myo is disconnected.
         """
+        tts.myodisconnected()
 
     def on_arm_sync(self, myo, timestamp, arm, x_direction, rotation,
                     warmup_state):
@@ -156,7 +185,7 @@ try:
         time.sleep(0.25)
         if state != "":
             continue
-        action = input("Do you want to train or stream? ")
+        action = input("Do you want to train [t], subtrain [st], or stream [s]? ")
         if action == "train" or action == "t":
             gesture = input("What gesture? ")
             state = "train"
@@ -168,6 +197,15 @@ try:
             except KeyboardInterrupt:
                 print("Quit streaming")
                 state = ""
+        elif action == "subtrain" or action == "st":
+            subpos = input("Sub position? ")
+            maing = input("For what gesture? ")
+            if maing not in subtrain:
+                subtrain[maing] = {"features":[], "output":[]}
+            subtrain[maing]["features"].append(currentacc)
+            subtrain[maing]["output"].append(subpos)
+            print("Stored", currentacc, "for", maing,"as", subpos)
+
 except KeyboardInterrupt:
     print("\nQuitting ...")
 finally:
