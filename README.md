@@ -12,7 +12,7 @@ The whole project is written in Python.  We used pyttsx for text-to speech, and 
 
 ##FAQ
 ####Can you preload exercises?
-Yes, but no.  It would be possible to save the data you generate in a given session, however it is unlikely to be particularly useful.  It is rare that two people can use the same calibrated settings, and even slight displacements of the Myo can throw off the data.  It is best to dedicate two minutes at the beginnig of each session to proper calibration.
+Yes, but no.  It would be possible to save the data you generate in a given session, however it is unlikely to be particularly useful.  It is rare that two people can use the same calibrated settings, and even slight displacements of the Myo can throw off the data.  It is best to dedicate two minutes at the beginning of each session to proper calibration.
 
 
 
